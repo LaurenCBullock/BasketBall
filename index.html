@@ -1,0 +1,741 @@
+<html>
+    <head>
+        <meta content="text/html;charset=utf-8" http-equiv="Content-Type">
+        <meta content="utf-8" http-equiv="encoding">
+        <script> var gameInterval;
+            
+var gameCanvas;
+var eventCatcherDiv;
+
+var all_Images = [];
+var all_Audio = [];
+var balls = [];
+var player;
+var cursorX = 0;
+var cursorY = 0;
+var mouseClicked = false;
+var audio;
+
+var codeOne = false;
+var codeTwo = false;
+var codeTimer;
+
+//collision rectangles
+var boundingBoxs = [];
+boundingBoxs.push(new rect(10, 115, 20, 460)); //pole
+boundingBoxs.push(new rect(16, 240, 40, 45)) //before basket ;
+boundingBoxs.push(new rect(124, 240, 10, 45)) //right basket
+
+scoreField = new rect(58, 260, 65, 6);
+
+//var playX = 650;
+//var playY = 375;
+var currentCountDown;
+var speed = 5;
+
+var BallState = {
+    ROLLING: 1,
+    HELD: 2,
+    INFLIGHT: 3,
+    RESTING: 4,
+};
+
+var VolumeState = {
+    MUTE: 1,
+    LOW: 2,
+    MED: 3,
+    HI: 4,
+};
+            
+var GameState = {
+    MENU: 1,
+	GAME: 2,
+	CONTROLS: 3,
+    END: 4,
+	CREDITS: 5,
+};
+
+var curGameState = GameState.MENU;
+
+var LEFT = false;
+var RIGHT = false;
+var SPACE;
+var released = false;
+
+
+var score = 0;
+var Grav = .5;
+var t1;
+var t2;
+var timer;
+var SpaceDown = false;
+var vol = VolumeState.LOW;
+
+//Load Essentials ----------------------------------------------------------------------------------------------
+function startLoading() {
+    eventCatcherDiv = document.getElementById("EventCatcher");
+    //eventCatcherDiv.addEventListener("onkeydown", movePlayer);
+    // eventCatcherDiv events go here
+
+    gameCanvas = document.getElementById("GraphicsBox");
+
+    gameInterval = setInterval(hasLoaded, 250);
+    
+    //Audio
+    audio = new Audio('DistrictFour.mp3');
+    audio.volume = 0.2;
+    audio.loop = true;
+    
+    //Images
+    all_Images.push(getImageFile("Controls.png"));
+    all_Images.push(getImageFile("BG.png"));
+    all_Images.push(getImageFile("BallSprite.png"));
+    all_Images.push(getImageFile("PlayerStill.png"));
+    all_Images.push(getImageFile("PlayerFull.png"));
+    all_Images.push(getImageFile("BGFore.png"));
+    all_Images.push(getImageFile("retry.png"));
+    all_Images.push(getImageFile("volume.png"));
+    all_Images.push(getImageFile("Title.png"));
+    all_Images.push(getImageFile("PlayButt.png"));
+    all_Images.push(getImageFile("ControlsButt.png"));
+    all_Images.push(getImageFile("arrow.png"));
+    all_Images.push(getImageFile("Final Score.png"));
+	all_Images.push(getImageFile("credits.png"));
+	all_Images.push(getImageFile("inverArrow.png"));
+}
+
+//Set document element to provided image----------------------------------------------------------------------------------------------
+function getImageFile(filename) {
+    var imgVar = document.createElement("img");
+    imgVar.setAttribute("src", filename);
+    return imgVar;
+}
+
+//Make sure assets are loaded ----------------------------------------------------------------------------------------------
+function hasLoaded() {
+    if (true) // Check to see if all info is loaded
+    {
+        clearInterval(gameInterval);
+        startGame();
+    }
+}
+
+//Mouse Event Listeners ----------------------------------------------------------------------------------------------
+document.onmousemove = function(e)
+{
+    cursorX = e.pageX;
+    cursorY = e.pageY;
+}
+
+document.onmouseup = function(e)
+{
+    mouseClicked = true;
+}
+            
+            
+//Keyboard Event Listeners ----------------------------------------------------------------------------------------------
+document.onkeydown = function(e) {
+    if (e.keyCode == 37) LEFT = true;
+    if (e.keyCode == 39) RIGHT = true;
+    if (e.keyCode == 32 && balls[balls.length - 1].ballCurState == BallState.HELD && curGameState == GameState.GAME) {
+        if (SpaceDown == false) {
+            balls[balls.length - 1].velX = -1;
+            t1 = (new Date()).getTime();
+            SpaceDown = true;
+        }
+        //Calculate power based on time.
+        //SPACE = true;
+    }
+	
+	
+
+}
+document.onkeyup = function(e) {
+    if (e.keyCode == 37) LEFT = false;
+    if (e.keyCode == 39) RIGHT = false;
+    if(e.keyCode == 65) changeVol();
+    //When Space is released, release ball
+    if (e.keyCode == 32 && balls[balls.length - 1].ballCurState == BallState.HELD && curGameState == GameState.GAME) {
+        if (released == false) {
+            t2 = (new Date()).getTime();
+            timer = (t2 - t1) / 50;
+            if (timer > 25) timer = timer % 25;
+            balls[balls.length - 1].velX = balls[balls.length - 1].velX * timer;
+            if (balls[balls.length - 1].velX < -25) {
+                balls[balls.length - 1].velX = -25;
+            }
+
+        }
+        //SPACE = false
+        released = true;
+
+    }
+	//Key Combo here
+	if(e.keyCode == 76)
+	{
+		console.log("Puff!");
+		codeOne = true;
+		codeTimer = (new Date()).getTime();
+	}
+	if(e.keyCode == 67)
+	{
+		console.log("Test");
+		codeTwo = true;
+		codeTimer = (new Date()).getTime();
+	}
+    player.movePlayer();
+}
+
+//Volume Control ----------------------------------------------------------------------------------------------
+function changeVol()
+{
+    switch(vol)
+    {
+        case VolumeState.MUTE:
+            vol = VolumeState.LOW;
+            audio.volume = 0.1;
+            break;
+        case VolumeState.LOW:
+            vol = VolumeState.MED;
+            audio.volume = 0.3;
+            break;
+        case VolumeState.MED:
+            vol = VolumeState.HI;
+            audio.volume = 0.5;
+            break;
+        case VolumeState.HI:
+            vol = VolumeState.MUTE;
+            audio.volume = 0.0;
+            break;
+    }
+    
+}
+
+//Setup essential vars ----------------------------------------------------------------------------------------------
+function startGame() {
+    //gameCanvas.getContext("2d").drawImage(all_Images[1], 0, 0);
+
+    //drawBall(gameCanvas.getContext("2d"));
+    player = new playar(gameCanvas.getContext("2d"));
+    balls.push(new ball(gameCanvas.getContext("2d")));
+    //player.drawPlayer(gameCanvas.getContext("2d"));
+    gameInterval = setInterval(runGame, 25);
+    //audio.play();
+}
+
+
+//Main logic for each game state ----------------------------------------------------------------------------------------------
+function runGame() {
+
+
+    //clears whats on screen
+    gameCanvas.getContext("2d").clearRect(0, 0, gameCanvas.width, gameCanvas.height);
+	
+	if((new Date()).getTime() - codeTimer > 500)
+	{
+		codeOne = false;
+		codeTwo = false;
+	}
+	if(codeOne == true && codeTwo == true)
+	{
+		curGameState = GameState.CREDITS;
+		codeOne = false;
+		codeTwo = false;
+	}
+	//Credits SCREEN ----------------------------------------------------------------------------------------------
+	if(curGameState == GameState.CREDITS)
+	{
+		gameCanvas.getContext("2d").drawImage(all_Images[13], 0, 0);
+		gameCanvas.getContext("2d").drawImage(all_Images[14], 0, 0);
+		if(cursorX >=0 && cursorX <= 75  && cursorY >= 0 && cursorY <= 75 && mouseClicked == true)
+		{
+			mouseClicked = false;
+			console.log("Yes!");
+			score = 0;
+			balls = [];
+			balls.push(new ball(gameCanvas.getContext("2d")));
+			curGameState = GameState.MENU;
+			audio.pause();
+		}
+	}
+	
+	//MENU SCREEN ----------------------------------------------------------------------------------------------
+    if(curGameState == GameState.MENU){
+		gameCanvas.getContext("2d").fillStyle = "#ff0000";
+        gameCanvas.getContext("2d").drawImage(all_Images[8], 0, 0);
+		gameCanvas.getContext("2d").drawImage(all_Images[9], 300, 400);
+		gameCanvas.getContext("2d").drawImage(all_Images[10], 300, 500);
+		
+		//Play button
+		if(cursorX >=300 && cursorX <= 500  && cursorY >= 400 && cursorY <= 475 && mouseClicked == true)
+		{
+			mouseClicked = false;
+			curGameState = GameState.GAME;
+			currentCountDown = createCountDown(60000);
+			audio.play();
+		
+		//Controls Button
+		}else if(cursorX >=300 && cursorX <= 500  && cursorY >= 500 && cursorY <= 575 && mouseClicked == true)
+		{
+			mouseClicked = false;
+			curGameState = GameState.CONTROLS;
+		}
+		
+		gameCanvas.getContext("2d").stroke();
+	}
+	//CONTROL SCREEN ----------------------------------------------------------------------------------------------
+	else if(curGameState == GameState.CONTROLS)
+	{
+		gameCanvas.getContext("2d").drawImage(all_Images[0], 0, 0);
+		gameCanvas.getContext("2d").drawImage(all_Images[11], 0, 0);
+		
+		if(cursorX >=0 && cursorX <= 75  && cursorY >= 0 && cursorY <= 75 && mouseClicked == true)
+		{
+			mouseClicked = false;
+			curGameState = GameState.MENU;
+		}
+	}
+	
+	//GAME LOGIC ----------------------------------------------------------------------------------------------
+	else if(curGameState == GameState.GAME || curGameState == GameState.END)
+	{
+		//draw here
+		gameCanvas.getContext("2d").drawImage(all_Images[1], 0, 0);
+		//Make sure player doesn't go off the edge
+		if (player.x > 800 - player.image.width) {
+			player.x = 800 - player.image.width;
+		}
+		if (player.x < 400) {
+			player.x = 400;
+		}
+
+		var countDownValue = currentCountDown;
+		var curTime = Number(countDownValue() / 1000).toFixed(2);
+		if (curTime <= 0) {
+			curTime = 0.00;
+			curGameState = GameState.END;
+		}
+		gameCanvas.getContext("2d").fillStyle = "#ff4477";
+		gameCanvas.getContext("2d").font = "50px monospace";
+		gameCanvas.getContext("2d").fillText(score, 275, 180, 50);
+		gameCanvas.getContext("2d").fillText(balls.length - 1, 495, 180, 50);
+		gameCanvas.getContext("2d").fillText(Number(curTime).toFixed(2), 375, 105, 50);
+
+
+		if (curGameState == GameState.GAME) {
+			player.movePlayer();
+		}
+		//END GAME SCREEN ----------------------------------------------------------------------------------------------
+		else if (curGameState == GameState.END) {
+			gameCanvas.getContext("2d").fillStyle = "#ffffff";
+			gameCanvas.getContext("2d").fillRect(200,150,400,300);
+			
+			gameCanvas.getContext("2d").fillStyle = "#000";
+			gameCanvas.getContext("2d").drawImage(all_Images[12],200,150);
+			
+			
+			gameCanvas.getContext("2d").font = "70px monospace";
+			
+			gameCanvas.getContext("2d").fillText(score, 375, 320, 70);
+			
+			gameCanvas.getContext("2d").fillStyle = "ff0000";
+			gameCanvas.getContext("2d").drawImage(all_Images[6],300,350);
+			
+			buttonClicked();
+			
+		}
+		player.drawPlayer(gameCanvas.getContext("2d"));
+		//drawBall(gameCanvas.getContext("2d"));
+		timer = Math.abs(t2 - t1);
+		//ballHandler(gameCanvas.getContext("2d"));
+
+		for (var i = 0; i <= balls.length - 1; i++) {
+			ballHandler(gameCanvas.getContext("2d"), balls[i]);
+			balls[i].draw(gameCanvas.getContext("2d"));
+			//gameCanvas.getContext("2d").rect(balls[i].x,balls[i].y,balls[i].width,balls[i].height);
+			//gameCanvas.getContext("2d").stroke();
+		}
+
+		balls[balls.length - 1].ballBottom = balls[balls.length - 1].y + balls[balls.length - 1].height;
+		balls[balls.length - 1].ballLeft = balls[balls.length - 1].x;
+		balls[balls.length - 1].ballRight = balls[balls.length - 1].x + balls[balls.length - 1].width;
+		balls[balls.length - 1].ballTop = balls[balls.length - 1].y;
+
+		for (var i = 0; i <= boundingBoxs.length - 1; i++) {
+			collide(boundingBoxs[i], balls[balls.length - 1]);
+		}
+		player.drawArms(gameCanvas.getContext("2d"));
+
+
+		scoreCollide(scoreField, balls[balls.length - 1]);
+		
+		//Volume Button
+		if(cursorX >=750 && cursorX <= 800  && cursorY >= 0 && cursorY <= 50 && mouseClicked == true)
+		{
+			mouseClicked = false;
+			changeVol();
+		}
+		drawVolButton(gameCanvas.getContext("2d"))
+		
+		balls[balls.length - 1].oldBallBottom = balls[balls.length - 1].ballBottom;
+		balls[balls.length - 1].oldBallLeft = balls[balls.length - 1].ballLeft;
+		balls[balls.length - 1].oldBallRight = balls[balls.length - 1].ballRight;
+		balls[balls.length - 1].oldBallTop = balls[balls.length - 1].ballTop;
+		gameCanvas.getContext("2d").drawImage(all_Images[5], 0, 0);
+		
+		
+	}
+	mouseClicked = false;
+}
+    
+//Volume Button Logic ----------------------------------------------------------------------------------------------            
+function drawVolButton(g)
+{
+   switch(vol)
+   {
+      case VolumeState.MUTE:
+        g.drawImage(all_Images[7], 0, 0, 50, 50, 750, 0, 50, 50);
+        break;
+    case VolumeState.LOW:
+        g.drawImage(all_Images[7], 50, 0, 50, 50, 750, 0, 50, 50);
+        break;
+    case VolumeState.MED:
+        g.drawImage(all_Images[7], 100, 0, 50, 50, 750, 0, 50, 50);
+        break;
+    case VolumeState.HI:
+        g.drawImage(all_Images[7], 150, 0, 50, 50, 750, 0, 50, 50);
+        break;     
+   }
+        
+}
+
+function buttonClicked()
+{
+    //gameCanvas.getContext("2d").fillRect(300,325,200,100)
+    if(cursorX >=300 && cursorX <= 500 && cursorY >= 325 && cursorY <= 425 && mouseClicked == true)
+    {
+        mouseClicked = false;
+        currentCountDown = createCountDown(60000);
+        score = 0;
+        balls = [];
+        balls.push(new ball(gameCanvas.getContext("2d")));
+        curGameState = GameState.MENU;
+        
+    }
+}
+
+//Method to setup countdown timer ----------------------------------------------------------------------------------------------
+function createCountDown(timeRemaining) {
+    var startTime = Date.now();
+    return function() {
+        return timeRemaining - (Date.now() - startTime);
+    }
+}
+
+
+
+////Player Objects ----------------------------------------------------------------------------------------------
+function playar(g) {
+    this.image = all_Images[3];
+    this.x = 650;
+    this.y = 375;
+    this.width = 100;
+    this.height = 200;
+
+    this.pickUp = false;
+
+    this.tickCount = 0;
+    this.frameX = 0;
+    this.frameY = 200;
+    this.ticksPerFrame = 5;
+    this.ticksPerPickUp = 8;
+    this.moving = false;
+    
+	//Method to draw Player ----------------------------------------------------------------------------------------------
+    this.drawPlayer = function(g) {
+        if (balls[balls.length - 1].ballCurState == BallState.HELD && balls[balls.length - 1].isPickedUp == false) {
+            g.drawImage(all_Images[4], this.frameX, 600, 100, 200, this.x, this.y, 100, 200);
+        } else if (balls[balls.length - 1].ballCurState == BallState.HELD && balls[balls.length - 1].isPickedUp == true) {
+            g.drawImage(all_Images[4], this.frameX, 200, 100, 200, this.x, this.y, 100, 200);
+        } else if (this.moving == false) {
+            g.drawImage(all_Images[3], this.x, this.y);
+        } else {
+            g.drawImage(all_Images[4], this.frameX, 0, 100, 200, this.x, this.y, 100, 200);
+        }
+
+
+    }
+	//Method to draw player arm sprites at seperate depth  ----------------------------------------------------------------------------------------------
+    this.drawArms = function(g) {
+        if (balls[balls.length - 1].ballCurState == BallState.HELD && balls[balls.length - 1].isPickedUp == false) {
+            g.drawImage(all_Images[4], this.frameX, 800, 100, 200, this.x, this.y, 100, 200);
+        } else if (balls[balls.length - 1].ballCurState == BallState.HELD && balls[balls.length - 1].isPickedUp == true) {
+            g.drawImage(all_Images[4], this.frameX, 400, 100, 200, this.x, this.y, 100, 200);
+        }
+
+    }
+	//Method containing player movment logic ----------------------------------------------------------------------------------------------
+    this.movePlayer = function() {
+        if (!(balls[balls.length - 1].ballCurState == BallState.HELD && balls[balls.length - 1].isPickedUp == false)){
+            this.tickCount += 1
+            if (LEFT) {
+                this.x = this.x - 1 * speed;
+
+                if (this.tickCount > this.ticksPerFrame) {
+                    this.tickCount = 0;
+                    this.frameX -= 100;
+                    if (this.frameX < 0) {
+                        this.frameX = 300;
+                    }
+                    //this.frame = this.frame%210;
+                    // Go to the next frame
+                }
+                this.moving = true;
+            } else if (RIGHT) {
+                if (this.tickCount > this.ticksPerFrame) {
+                    this.tickCount = 0;
+                    this.frameX += 100;
+                    this.frameX = this.frameX % 300;
+                    // Go to the next frame
+                    this.moving = true;
+                }
+                this.x = this.x + 1 * speed;
+            } else {
+                this.moving = false;
+            }
+
+        }
+    }
+	//Method for animating playing picking up ball ----------------------------------------------------------------------------------------------
+    this.pickBall = function() {
+        this.tickCount += 1
+        if (this.tickCount > this.ticksPerPickUp) {
+            
+            this.tickCount = 0;
+            this.frameX += 100;
+            //console.log(this.frameX);
+            if (this.frameX > 100) {
+                balls[balls.length - 1].isPickedUp = true;
+            }
+        }
+    }
+
+}
+
+//Ball Object ----------------------------------------------------------------------------------------------
+function ball(g) {
+    this.image = all_Images[2];
+    this.x = 800;
+    this.y = 550;
+    this.width = 34;
+    this.height = 34;
+
+    this.ballLeft = this.x + 4;
+    this.ballRight = this.ballLeft + this.width;
+    this.ballTop = this.y + 4;
+    this.ballBottom = this.ballTop + this.height;
+
+    this.oldBallLeft = this.x;
+    this.oldBallRight = this.ballLeft + this.width;
+    this.oldBallTop = this.y;
+    this.oldBallBottom = this.ballTop + this.height;
+
+    //this.rect = { x: this.x, y: this.y, width: this.width, height: this.height};
+    this.velY = -18;
+    this.velX = -1;
+    this.ballCurState = BallState.ROLLING;
+    this.tickCount = 0;
+    this.frame = 0;
+    this.ticksPerFrame = 4;
+    this.intersectLastframe = false;
+    this.intersectThisFrame = false;
+
+    this.hasScored = false;
+
+    this.isPickedUp = false;
+
+	//Method to draw ball ----------------------------------------------------------------------------------------------
+    this.draw = function(g) {
+        //g.drawImage(all_Images[2], this.x, this.y);
+        g.drawImage(all_Images[2], this.frame, 0, 42, 42, this.x, this.y, 42, 42);
+        this.tickCount += 1;
+
+
+        if (this.ballCurState == BallState.ROLLING) {
+            if (this.tickCount > this.ticksPerFrame) {
+
+                this.tickCount = 0;
+                this.frame -= 42;
+                if (this.frame < 0) {
+                    this.frame = 210;
+                }
+                //this.frame = this.frame%210;
+                // Go to the next frame
+            }
+        } else if (this.ballCurState == BallState.INFLIGHT) {
+            if (this.tickCount > this.ticksPerFrame) {
+                this.tickCount = 0;
+                this.frame += 42;
+                this.frame = this.frame % 210;
+                // Go to the next frame
+            }
+        } else if (this.ballCurState == BallState.RESTING && this.velX != 0) {
+            if (this.tickCount > this.ticksPerFrame) {
+
+                this.tickCount = 0;
+                this.frame += 42;
+                this.frame = this.frame % 210;
+                // Go to the next frame
+            }
+        }
+
+    }
+	//Method to control ball velocity ----------------------------------------------------------------------------------------------
+    this.throwBall = function() {
+        this.velY += Grav;
+        this.x += this.velX;
+        this.y += this.velY;
+
+    }
+}
+
+//Rectangle obj
+function rect(x, y, width, height) {
+    this.x = x;
+    this.y = y;
+    this.width = width;
+    this.height = height;
+}
+
+//Method containing logic for ball in different state of the game ----------------------------------------------------------------------------------------------
+function ballHandler(g, b) {
+    if (b.ballCurState == BallState.ROLLING) {
+        b.x -= 4;
+        if (pickUpBall(player, balls[balls.length - 1])) {
+            b.ballCurState = BallState.HELD
+            player.frameX = 0;
+        }
+    } else if (b.ballCurState == BallState.HELD) {
+        if (b.isPickedUp == false) {
+            b.x = player.x;
+            b.y = player.y + 100;
+            player.pickBall();
+        }
+        else if (released == true) {
+            b.ballCurState = BallState.INFLIGHT;
+        } else {
+            b.x = player.x;
+            b.y = player.y + 80;
+        }
+    } else if (b.ballCurState == BallState.INFLIGHT) {
+        b.throwBall();
+        if (b.y > 550) {
+            b.y = 549;
+            b.velY = (b.velY * -1) / 2;
+            if (Math.abs(b.velY) < 1) {
+                b.ballCurState = BallState.RESTING;
+                balls.push(new ball(gameCanvas.getContext("2d")));
+                released = false;
+                SpaceDown = false;
+            }
+        }
+    } else if (b.ballCurState == BallState.RESTING) {
+        if (b.velX < 0) {
+            b.x += b.velX;
+            b.velX += .1;
+            if (b.velX > 0) {
+                b.velX = 0;
+            }
+        } else if (b.velX > 0) {
+            b.x += b.velX;
+            b.velX -= .1;
+            if (b.velX < 0) {
+                b.velX = 0;
+            }
+        }
+    }
+}
+
+//Method to caculate player/ball collision----------------------------------------------------------------------------------------------
+function pickUpBall(a, b) {
+    return (a.x <= b.x &&
+        b.x <= a.x || b.x < a.x); //&&  
+    //a.y  <= (b.y + b.height) &&
+    //b.y  <= (a.y + a.height));
+}
+
+
+//Method to caculate ball colllision with invisible walls ----------------------------------------------------------------------------------------------
+function collide(a, b) {
+    var boxLeft = a.x;
+    var boxRight = boxLeft + a.width;
+    var boxTop = a.y;
+    var boxBottom = boxTop + a.height;
+
+
+    function collidedFromRight(a, b) {
+        return b.oldBallLeft >= boxRight && // was not colliding
+            b.ballLeft < boxRight;
+    }
+
+    function collidedFromTop(a) {
+        return b.oldBallBottom < boxTop && // was not colliding
+            b.ballBottom >= boxTop;
+    }
+
+    function collidedFromBottom(a) {
+        return b.oldBallTop >= boxBottom && // was not colliding
+            b.ballTop < boxBottom;
+    }
+
+    function collidedFromLeft(a) {
+        return b.oldBallRight < boxLeft && // was not colliding
+            b.ballRight >= boxLeft;
+    }
+
+    if (a.x <= (b.x + b.width) &&
+        b.x <= (a.x + a.width) &&
+        a.y <= (b.y + b.height) &&
+        b.y <= (a.y + a.height)) {
+        if (collidedFromTop(a, b) || collidedFromBottom(a, b)) {
+            b.velY = -(b.velY);
+        }
+        if (collidedFromLeft(a, b) || collidedFromRight(a, b)) {
+            b.velX = -(b.velX);
+        }
+    }
+
+    return (a.x <= (b.x + b.width) &&
+        b.x <= (a.x + a.width) &&
+        a.y <= (b.y + b.height) &&
+        b.y <= (a.y + a.height));
+
+}
+
+//Method to prevent a scoring ball from counting as 'scored' multiple times ----------------------------------------------------------------------------------------------
+function scoreCollide(a, b) {
+    if (a.x <= (b.x + b.width) &&
+        b.x <= (a.x + a.width) &&
+        a.y <= (b.y + b.height) &&
+        b.y <= (a.y + a.height) && b.hasScored == false) {
+
+        console.log("Wow what a God");
+        b.hasScored = true;
+        score++;
+        return true;
+    }
+    return false;
+} </script>
+    </head>
+    <body>
+        <div id="BackgroundBox" style="overflow:hidden; position: absolute; left: 0px; top: 0px; width: 800px; height: 600px; background-color: grey;">
+            <canvas id="GraphicsBox" width="800px" height="600px" style="overflow:hidden; position: absolute; width: 800px; height: 600px; left: 0px; top: 0px;">Your browser requires Canvas support to play this game.</canvas>
+            <div id="EventCatcher" style="overflow:hidden; position: absolute; left: -100px; top: -100px; width: 800px; height: 600px;">
+                <div style="height: 4000px; width: 10px;"></div>
+            </div>
+        </div>
+        <script>
+            startLoading()
+        </script>
+    </body>
+</html>
