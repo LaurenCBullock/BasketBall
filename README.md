@@ -1,4 +1,4 @@
-Game was commissioned in the summer of 2017. Commissioner didn't want the exclusive rights so code is public
+Game was commissioned in the summer of 2017. Commissioner didn't want the exclusive rights so code is public.
 
 Devs:
   Lauren Bullock -- Programmer and Artist
